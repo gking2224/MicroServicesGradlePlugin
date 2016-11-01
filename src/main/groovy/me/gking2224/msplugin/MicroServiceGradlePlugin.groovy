@@ -1,5 +1,7 @@
 package me.gking2224.msplugin
 
+import java.util.logging.Logger;
+
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -38,6 +40,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("buildDockerImage", type: se.transmode.gradle.plugins.docker.DockerTask) {
             dockerfile = new File(project.projectDir, 'Dockerfile')
             applicationName = project.name
+            tag = "${project.group}/${project.name}:${project.version}"
             addFile new File("build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"), "\$WORK_DIR/service.jar"
             addFile new File("logback.xml"), "\$WORK_DIR"
             hostUrl = { project.ecrRepository }
@@ -45,10 +48,14 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             apiPassword = { project.ecrPassword }
             apiEmail = "none"
         }
+        project.tasks.buildDockerImage << {
+            logger.info("Built $tag")
+        }
         project.tasks.buildDockerImage.dependsOn 'dockerLogin'
         project.task("tagImageForRemote", type: me.gking2224.dockerplugin.task.TagImage) {
             registry = { project.dockerRepositoryName + "/" + project.group + "/" + project.name }
             tag = {project.version}
+            imageId = {project.tasks.buildDockerImage.tag}
         }
         project.tasks.tagImageForRemote.dependsOn 'ecrGetLogin'
         
