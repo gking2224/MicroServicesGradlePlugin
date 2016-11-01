@@ -50,6 +50,10 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             apiPassword = { project.ecrPassword }
             apiEmail = "none"
         }
+        project.tasks.buildDockerImage.doFirst {
+            println "Configuring in doFirst with version ${project.version}"
+            tag = project.version
+        }
         project.tasks.buildDockerImage << {
             logger.info("Built $tag")
         }
