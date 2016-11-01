@@ -45,10 +45,9 @@ dependencies {
     compile localGroovy()
     compile 'se.transmode.gradle:gradle-docker:1.2'
     compile "me.gking2224:BuildToolsGradlePlugin:0.2.+"
-    compile "me.gking2224:AmazonAWSGradlePlugin:0.1.10-SNAPSHOT"
+    compile "me.gking2224:AmazonAWSGradlePlugin:0.1.+"
     compile "me.gking2224:DockerPlugin:0.0.+"
     testCompile "junit:junit:$junitVersion"
-    testCompile "me.gking2224:BuildToolsGradlePlugin:0.1.8"
     compile group: 'com.github.docker-java', name: 'docker-java', version: '3.0.6'
     
 }
