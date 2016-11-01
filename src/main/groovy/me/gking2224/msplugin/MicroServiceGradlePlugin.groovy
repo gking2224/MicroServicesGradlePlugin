@@ -41,6 +41,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             dockerfile = new File(project.projectDir, 'Dockerfile')
             applicationName = project.name
             tag = "${project.group}/${project.name}"
+            println "Configuring with version ${project.version}"
             tagVersion = project.version
             addFile new File("build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"), "\$WORK_DIR/service.jar"
             addFile new File("logback.xml"), "\$WORK_DIR"
