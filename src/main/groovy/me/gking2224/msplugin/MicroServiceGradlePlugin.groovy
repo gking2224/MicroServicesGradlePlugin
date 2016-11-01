@@ -52,7 +52,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         }
         project.tasks.buildDockerImage.doFirst {
             println "Configuring in doFirst with version ${project.version}"
-            tag = project.version
+            tagVersion = project.version
         }
         project.tasks.buildDockerImage << {
             logger.info("Built $tag")
