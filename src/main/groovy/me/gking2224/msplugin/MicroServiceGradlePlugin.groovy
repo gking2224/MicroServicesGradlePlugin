@@ -48,7 +48,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks.buildDockerImage.dependsOn 'dockerLogin'
         project.task("tagImageForRemote", type: me.gking2224.dockerplugin.task.TagImage) {
             registry = { project.dockerRepositoryName + "/" + project.group + "/" + project.name }
-            tag = project.preReleaseVersion
+            tag = {project.version}
         }
         project.tasks.tagImageForRemote.dependsOn 'ecrGetLogin'
         
