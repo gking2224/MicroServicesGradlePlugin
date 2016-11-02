@@ -109,13 +109,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             configureDeployTasks(it)
         }
     }
-    def configureDeployTasks(String env) {
+    def configureDeployTasks(String environment) {
         
-        String cEnv = env.capitalize()
+        String cEnv = environment.capitalize()
         
         project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
             service = project.name
-            env = env
+            env = environment
             version = "next"
         }
         
