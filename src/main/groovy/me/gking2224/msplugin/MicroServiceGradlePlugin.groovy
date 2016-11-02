@@ -5,10 +5,13 @@ import java.util.logging.Logger;
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
+import me.gking2224.buildtools.plugin.ProjectConfigurer;
+
 
 class MicroServiceGradlePlugin implements Plugin<Project> {
 
     private static final String NAME = "me.gking2224.msplugin"
+    private String[] envs = ["dev"]
 
     Project project
 	void apply(Project project) {
@@ -17,6 +20,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
 		project.extensions.create(MicroServicePluginExtension.KEY, MicroServicePluginExtension, project)
         
         configureDockerPublishTasks()
+        configureDeployTasks()
 	}
     
     def configureDockerPublishTasks() {
@@ -71,15 +75,78 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         }
         project.tasks.pushImage.dependsOn 'tagImageForRemote'
         
-        project.task("newTaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
-            family = project.name+"-dev"
-            image = {project.tasks.pushImage.imageId}
+        project.task("newTaskDefinitions")
+        project.tasks["newTaskDefinitions"].dependsOn 'pushImage'
+        configureNewTaskDefinitionTasks()
+        
+        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newTaskDefinitions')
+    }
+    
+    def configureNewTaskDefinitionTasks() {
+        envs.each {
+            configureNewTaskDefinitionTasks(it)
         }
-        project.tasks.newTaskDefinition.dependsOn 'pushImage'
+    }
+    
+    def configureNewTaskDefinitionTasks(String env) {
+        String cEnv = String.capitalize(env)
+        project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
+            family = "${project.name}-${env}"
+        }
+        project.tasks["new${cEnv}TaskDefinition"].doFirst {
+            image = project.tasks.pushImage.imageId
+        }
+        project.tasks["new${cEnv}TaskDefinition"] << {
+            project.ext["${env}TaskDefinitionName"] = taskDefinitionName
+            project.ext["${env}TaskDefinitionArn"] = taskDefinitionArn
+        }
+        project.tasks["newTaskDefinitions"].dependsOn "new${cEnv}TaskDefinition"
+    }
+    
+    def configureDeployTasks() {
+        envs.each {
+            configureDeployTasks(it)
+        }
+    }
+    def configureDeployTasks(String env) {
         
-        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newTaskDefinition')
+        String cEnv = String.capitalize(env)
         
+        project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
+            service = "securityms"
+            env = env
+            version = "next"
+        }
         
+        project.task("getNext${cEnv}ScalingGroup", type: me.gking2224.awsplugin.task.autoscaling.GetAutoScalingGroups, dependsOn:["getNext${cEnv}Instances"])
+        project.tasks["getNext${cEnv}ScalingGroup"].doFirst {
+            names = [] as Set
+            project.tasks["getNext${cEnv}Instances"].instances.each {
+                it.getTags().findAll {it.getKey() == 'aws:autoscaling:groupName' }.each {
+                    def value = it.getValue()
+                    assert (names.isEmpty() || (names.size() == 1 && names.iterator().next() == value))
+                    names << it.getValue()
+                }
+            }
+        }
+        
+        project.task("getNext${cEnv}Services", type: me.gking2224.awsplugin.task.ecs.ListServices, dependsOn:["getNext${cEnv}ScalingGroup"])
+        project.tasks["getNext${cEnv}Services"].doFirst {
+            project.tasks["getNextDevScalingGroup"].autoScalingGroups.each {
+                clusterName = it.getLaunchConfigurationName()
+            }
+        }
+        
+        project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Services"])
+        project.tasks["updateNext${cEnv}Service"].doFirst {
+            clusterName = project.tasks["getNext${cEnv}Services"].clusterName
+            service = project.tasks["getNext${cEnv}Services"].serviceArns[0]
+            taskDefinitionArn = "${project.taskDefinitionPrefix}/${project.taskDefinitionName}"
+        }
+        
+        project.tasks["updateNext${cEnv}Service"] << {
+            println updatedService
+        }
     }
 }
 
