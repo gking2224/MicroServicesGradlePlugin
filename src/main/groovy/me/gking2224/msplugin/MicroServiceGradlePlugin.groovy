@@ -142,7 +142,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks["updateNext${cEnv}Service"].doFirst {
             clusterName = project.tasks["getNext${cEnv}Services"].clusterName
             service = project.tasks["getNext${cEnv}Services"].serviceArns[0]
-            taskDefinitionArn = "${project.taskDefinitionPrefix}/${project.taskDefinitionName}"
+            taskDefinitionArn = project["${env}TaskDefinitionArn"]
         }
         
         project.tasks["updateNext${cEnv}Service"] << {
