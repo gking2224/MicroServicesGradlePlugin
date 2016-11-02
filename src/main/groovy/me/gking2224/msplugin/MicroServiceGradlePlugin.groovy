@@ -113,7 +113,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         String cEnv = env.capitalize()
         
         project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
-            service = "securityms"
+            service = project.name
             env = env
             version = "next"
         }
