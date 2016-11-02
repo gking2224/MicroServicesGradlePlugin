@@ -100,7 +100,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             project.ext["${env}TaskDefinitionName"] = taskDefinitionName
             project.ext["${env}TaskDefinitionArn"] = taskDefinitionArn
         }
-        project.tasks["new${cEnv}TaskDefinition"].mustRunAfter = project.tasks.pushImage
+        project.tasks["new${cEnv}TaskDefinition"].mustRunAfter << project.tasks.pushImage
         project.tasks["newTaskDefinitions"].dependsOn "new${cEnv}TaskDefinition"
     }
     
