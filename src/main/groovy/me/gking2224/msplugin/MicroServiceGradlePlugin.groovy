@@ -89,7 +89,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureNewTaskDefinitionTasks(String env) {
-        String cEnv = String.capitalize(env)
+        String cEnv = env.capitalize()
         project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
             family = "${project.name}-${env}"
         }
@@ -110,7 +110,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     def configureDeployTasks(String env) {
         
-        String cEnv = String.capitalize(env)
+        String cEnv = env.capitalize()
         
         project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
             service = "securityms"
