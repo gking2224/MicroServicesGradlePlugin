@@ -113,12 +113,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
             service = project.name
             env = environment
-            version = "none"
+            version = ["none","next"]
         }
         
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
-            def instances = project.tasks["getNext${cEnv}Instances"].instances
+            def instances = project.tasks["getNext${cEnv}Instances"].none?.instances
+            if (instances == null) instances = project.tasks["getNext${cEnv}Instances"].next?.instances
             instances.each {
                 it.getTags().find{it.getKey() == 'ecsCluster' }.each {
                     def ecsClusterTag = it.getValue()
@@ -138,7 +139,9 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["getNext${cEnv}Instances"])
         project.tasks["tagNext${cEnv}Instance"].doFirst {
-            instanceId = project.tasks["getNext${cEnv}Instances"].instances?.collect {it.instanceId}
+            def instances = project.tasks["getNext${cEnv}Instances"].none?.instances
+            if (instances == null) instances = project.tasks["getNext${cEnv}Instances"].next?.instances
+            instanceId = instances.collect {it.instanceId}
             tagKey = "version"
             tagValue = "next"
         }
