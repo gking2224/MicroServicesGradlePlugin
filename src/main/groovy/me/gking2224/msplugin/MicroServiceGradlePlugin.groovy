@@ -76,7 +76,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks["newTaskDefinitions"].dependsOn 'pushImage'
         configureNewTaskDefinitionTasks()
         
-        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newTaskDefinitions', 'updateNextDevService')
+        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newTaskDefinitions', 'updateAndTagNextDevInstance')
     }
     
     def configureNewTaskDefinitionTasks() {
@@ -113,7 +113,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
             service = project.name
             env = environment
-            version = "next"
+            version = "none"
         }
         
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Instances"])
@@ -136,9 +136,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             taskDefinitionArn = project["${environment}TaskDefinitionArn"]
         }
         
-        project.tasks["updateNext${cEnv}Service"] << {
-            logger.info "Updated service: $updatedService"
+        project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["getNext${cEnv}Instances"])
+        project.tasks["tagNext${cEnv}Instance"].doFirst {
+            instanceId = project.tasks["getNext${cEnv}Instances"].instances?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "next"
         }
+        project.task("updateAndTagNext${cEnv}Instance", dependsOn:["updateNext${cEnv}Service", "tagNext${cEnv}Instance"])
     }
 }
 
