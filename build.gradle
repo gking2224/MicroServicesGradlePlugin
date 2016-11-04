@@ -6,7 +6,7 @@ buildscript {
         maven { url= "http://nexus.gking2224.me/nexus/content/repositories/snapshots" }
     }
     dependencies {
-        classpath "me.gking2224:BuildToolsGradlePlugin:0.2.6"
+        classpath group:"me.gking2224", name:"BuildToolsGradlePlugin", version:"0.2.+", changing: true
     }
 }
 
@@ -44,9 +44,9 @@ dependencies {
     compile gradleApi()
     compile localGroovy()
     compile 'se.transmode.gradle:gradle-docker:1.2'
-    compile "me.gking2224:BuildToolsGradlePlugin:0.2.+"
-    compile "me.gking2224:AmazonAWSGradlePlugin:0.1.+"
-    compile "me.gking2224:DockerPlugin:0.0.+"
+    compile group:"me.gking2224", name:"BuildToolsGradlePlugin", version:"0.2.+", changing: true
+    compile group:"me.gking2224", name:"AmazonAWSGradlePlugin", version:"0.1.+", changing: true
+    compile group:"me.gking2224", name:"DockerPlugin", version:"0.0.+", changing: true
     testCompile "junit:junit:$junitVersion"
     compile group: 'com.github.docker-java', name: 'docker-java', version: '3.0.6'
     
