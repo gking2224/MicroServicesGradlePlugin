@@ -50,15 +50,16 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             addFile new File("logback.xml"), "\$WORK_DIR"
             apiEmail = "none"
         }
-        project.tasks.buildDockerImage.doFirst {
+        project.tasks.buildDockerImage.doFirst {")
             tagVersion = project.version
             setEnvironment "VERSION", project.version
             hostUrl = project.ecrRepository
             apiUsername = project.ecrUsername
             apiPassword = project.ecrPassword
+            logger.debug("buildDockerImage with hostUrl=$hostUrl; apiUsername=$apiUsername; apiPassword=$apiPassword; version=$tagVersion")
         }
         project.tasks.buildDockerImage << {
-            logger.info("Built $tag")
+            logger.debug("Built $tag")
         }
         project.tasks.buildDockerImage.dependsOn 'dockerLogin'
         project.task("tagImageForRemote", type: me.gking2224.dockerplugin.task.TagImage) {
