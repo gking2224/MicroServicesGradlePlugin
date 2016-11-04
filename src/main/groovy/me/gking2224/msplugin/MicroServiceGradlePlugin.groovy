@@ -48,14 +48,14 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             tagVersion = project.version
             addFile new File("build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"), "\$WORK_DIR/service.jar"
             addFile new File("logback.xml"), "\$WORK_DIR"
-            hostUrl = { project.ecrRepository }
-            apiUsername = { project.ecrUsername }
-            apiPassword = { project.ecrPassword }
             apiEmail = "none"
         }
         project.tasks.buildDockerImage.doFirst {
             tagVersion = project.version
             setEnvironment "VERSION", project.version
+            hostUrl = project.ecrRepository
+            apiUsername = project.ecrUsername
+            apiPassword = project.ecrPassword
         }
         project.tasks.buildDockerImage << {
             logger.info("Built $tag")
