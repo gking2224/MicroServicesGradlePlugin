@@ -1,11 +1,8 @@
 package me.gking2224.msplugin
 
-import java.util.logging.Logger;
-
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-
-import me.gking2224.buildtools.plugin.ProjectConfigurer;
 
 
 class MicroServiceGradlePlugin implements Plugin<Project> {
@@ -119,34 +116,28 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             version = "next"
         }
         
-        project.task("getNext${cEnv}ScalingGroup", type: me.gking2224.awsplugin.task.autoscaling.GetAutoScalingGroups, dependsOn:["getNext${cEnv}Instances"])
-        project.tasks["getNext${cEnv}ScalingGroup"].doFirst {
-            names = [] as Set
-            project.tasks["getNext${cEnv}Instances"].instances.each {
-                it.getTags().findAll {it.getKey() == 'aws:autoscaling:groupName' }.each {
-                    def value = it.getValue()
-                    assert (names.isEmpty() || (names.size() == 1 && names.iterator().next() == value))
-                    names << it.getValue()
+        project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Instances"])
+        project.tasks["updateNext${cEnv}Service"].doFirst {
+            def instances = project.tasks["getNext${cEnv}Instances"].instances
+            instances.each {
+                it.getTags().find{it.getKey() == 'ecsCluster' }.each {
+                    def ecsClusterTag = it.getValue()
+                    if (clusterName != null && clusterName != ecsClusterTag) throw new GradleException("mismatching ecsCluster in $instances")
+                    else clusterName = ecsClusterTag
                 }
             }
-        }
-        
-        project.task("getNext${cEnv}Services", type: me.gking2224.awsplugin.task.ecs.ListServices, dependsOn:["getNext${cEnv}ScalingGroup"])
-        project.tasks["getNext${cEnv}Services"].doFirst {
-            project.tasks["getNextDevScalingGroup"].autoScalingGroups.each {
-                clusterName = it.getLaunchConfigurationName()
+            instances.each {
+                it.getTags().find{it.getKey() == 'ecsServiceArn' }.each {
+                    def ecsServiceArnTag = it.getValue()
+                    if (service != null && service != ecsServiceArnTag) throw new GradleException("mismatching ecsServiceArn in $instances")
+                    service = ecsServiceArnTag
+                }
             }
-        }
-        
-        project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Services"])
-        project.tasks["updateNext${cEnv}Service"].doFirst {
-            clusterName = project.tasks["getNext${cEnv}Services"].clusterName
-            service = project.tasks["getNext${cEnv}Services"].serviceArns[0]
             taskDefinitionArn = project["${environment}TaskDefinitionArn"]
         }
         
         project.tasks["updateNext${cEnv}Service"] << {
-            println updatedService
+            logger.info "Updated service: $updatedService"
         }
     }
 }
