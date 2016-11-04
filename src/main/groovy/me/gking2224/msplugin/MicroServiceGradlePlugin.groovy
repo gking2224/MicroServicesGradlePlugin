@@ -50,7 +50,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             addFile new File("logback.xml"), "\$WORK_DIR"
             apiEmail = "none"
         }
-        project.tasks.buildDockerImage.doFirst {")
+        project.tasks.buildDockerImage.doFirst {
             tagVersion = project.version
             setEnvironment "VERSION", project.version
             hostUrl = project.ecrRepository
