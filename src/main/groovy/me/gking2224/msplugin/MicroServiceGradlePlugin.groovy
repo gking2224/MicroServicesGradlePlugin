@@ -153,7 +153,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     
     def configureRegisterTasks() {
         envs.each {
-            configureDeployTasks(it)
+            configureRegisterTasks(it)
         }
     }
     def configureRegisterTasks(String environment) {
