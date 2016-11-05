@@ -107,6 +107,23 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks["newTaskDefinitions"].dependsOn "new${cEnv}TaskDefinition"
     }
     
+    def configureInstanceDiscoveryTasks() {
+        envs.each {
+            configureInstanceDiscoveryTasks(it)
+        }
+    }
+    def configureInstanceDiscoveryTasks(String environment) {
+        
+        String cEnv = environment.capitalize()
+        
+        project.task("get${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
+            env = environment
+            version = ["current", "next", "previous", "none"]
+            service = project.name
+        }
+        
+    }
+    
     def configureDeployTasks() {
         envs.each {
             configureDeployTasks(it)
@@ -116,16 +133,16 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         String cEnv = environment.capitalize()
         
-        project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
-            service = project.name
-            env = environment
-            version = ["none","next"]
-        }
+//        project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
+//            service = project.name
+//            env = environment
+//            version = ["none","next"]
+//        }
         
-        project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["getNext${cEnv}Instances"])
+        project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["get${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
-            def instances = project.tasks["getNext${cEnv}Instances"].instances.none
-            if (instances == null) instances = project.tasks["getNext${cEnv}Instances"].instances.next
+            def instances = project.tasks["get${cEnv}Instances"].instances.none
+            if (instances == null) instances = project.tasks["get${cEnv}Instances"].instances.next
             instances.each {
                 it.getTags().find{it.getKey() == 'ecsCluster' }.each {
                     def ecsClusterTag = it.getValue()
@@ -143,32 +160,15 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             taskDefinitionArn = project["${environment}TaskDefinitionArn"]
         }
         
-        project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["getNext${cEnv}Instances"])
+        project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["get${cEnv}Instances"])
         project.tasks["tagNext${cEnv}Instance"].doFirst {
-            def instances = project.tasks["getNext${cEnv}Instances"].instances.none
-            if (instances == null) instances = project.tasks["getNext${cEnv}Instances"].instances.next
+            def instances = project.tasks["get${cEnv}Instances"].instances.none
+            if (instances == null) instances = project.tasks["get${cEnv}Instances"].instances.next
             instanceId = instances.collect {it.instanceId}
             tagKey = "version"
             tagValue = "next"
         }
         project.task("updateAndTagNext${cEnv}Instance", dependsOn:["updateNext${cEnv}Service", "tagNext${cEnv}Instance"])
-    }
-    
-    def configureInstanceDiscoveryTasks() {
-        envs.each {
-            configureInstanceDiscoveryTasks(it)
-        }
-    }
-    def configureInstanceDiscoveryTasks(String environment) {
-        
-        String cEnv = environment.capitalize()
-        
-        project.task("get${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
-            env = environment
-            version = ["current", "next", "previous", "none"]
-            service = project.name
-        }
-        
     }
     
     def configureLoadBalancerDiscoveryTasks() {
