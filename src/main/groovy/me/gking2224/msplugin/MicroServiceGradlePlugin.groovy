@@ -160,11 +160,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             taskDefinitionArn = project["${environment}TaskDefinitionArn"]
         }
         
-        project.task("registerNext${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["updateNext${cEnv}Service"])
+        project.task("registerNext${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["updateNext${cEnv}Service", "get${cEnv}TargetGroups"])
         project.tasks["registerNext${cEnv}InNext"].doFirst {
             instanceIds = project.tasks["updateNext${cEnv}Service"].instances.collect {it.instanceId}
             if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as next")
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
         }
         project.tasks["registerNext${cEnv}InNext"].mustRunAfter "tagNext${cEnv}Instance"
         
