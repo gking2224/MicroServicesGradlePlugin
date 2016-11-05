@@ -82,7 +82,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks["newTaskDefinitions"].dependsOn 'pushImage'
         configureNewTaskDefinitionTasks()
         
-        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newDevTaskDefinitions', 'updateAndTagNextDevInstance')
+        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newDevTaskDefinition', 'updateAndTagNextDevInstance')
     }
     
     def configureNewTaskDefinitionTasks() {
