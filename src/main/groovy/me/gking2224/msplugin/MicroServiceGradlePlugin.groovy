@@ -221,7 +221,6 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("deRegisterCurrent${cEnv}FromCurrent", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
         project.tasks["deRegisterCurrent${cEnv}FromCurrent"].doFirst {
             instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
             targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
         }
         project.tasks["deRegisterCurrent${cEnv}FromCurrent"].mustRunAfter "registerCurrent${cEnv}InPrevious"
@@ -238,7 +237,6 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("deRegisterPrevious${cEnv}FromPrevious", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
         project.tasks["deRegisterPrevious${cEnv}FromPrevious"].doFirst {
             instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as previous")
             targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
         }
         project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance)
