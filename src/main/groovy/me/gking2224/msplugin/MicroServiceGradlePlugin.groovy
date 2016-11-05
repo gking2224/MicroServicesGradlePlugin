@@ -8,7 +8,7 @@ import org.gradle.api.Project
 class MicroServiceGradlePlugin implements Plugin<Project> {
 
     private static final String NAME = "me.gking2224.msplugin"
-    private String[] envs = ["dev"]
+    private String[] envs = ["dev", "test"]
 
     Project project
 	void apply(Project project) {
@@ -17,7 +17,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
 		project.extensions.create(MicroServicePluginExtension.KEY, MicroServicePluginExtension, project)
         
         configureDockerPublishTasks()
+        
+        configureInstanceDiscoveryTasks()
+        configureLoadBalancerDiscoveryTasks()
+        
         configureDeployTasks()
+        configurePromoteTasks()
+        configureRollbackTasks()
 	}
     
     def configureDockerPublishTasks() {
@@ -147,5 +153,156 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         }
         project.task("updateAndTagNext${cEnv}Instance", dependsOn:["updateNext${cEnv}Service", "tagNext${cEnv}Instance"])
     }
+    
+    def configureInstanceDiscoveryTasks() {
+        envs.each {
+            configureInstanceDiscoveryTasks(it)
+        }
+    }
+    def configureInstanceDiscoveryTasks(String environment) {
+        
+        String cEnv = environment.capitalize()
+        
+        project.task("get${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
+            env = environment
+            version = ["current", "next", "previous", "none"]
+            service = project.name
+        }
+        
+    }
+    
+    def configureLoadBalancerDiscoveryTasks() {
+        envs.each {
+            configureLoadBalancerDiscoveryTasks(it)
+        }
+    }
+    def configureLoadBalancerDiscoveryTasks(String environment) {
+        
+        String cEnv = environment.capitalize()
+        
+        project.task("get${cEnv}TargetGroups", type: me.gking2224.awsplugin.task.elb.GetTargetGroups) {
+            env = "dev"
+            version = ["current", "next", "previous", "none"]
+            service = "securityms"
+        }
+    }
+    
+    def configurePromoteTasks() {
+        envs.each {
+            configurePromoteTasks(it)
+        }
+    }
+    def configurePromoteTasks(String environment) {
+        
+        String cEnv = environment.capitalize()
+        
+        project.task("registerNext${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerNext${cEnv}InCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as next")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.task("tagNext${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance)
+        project.tasks["tagNext${cEnv}AsCurrent"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "current"
+        }
+        project.tasks["tagNext${cEnv}AsCurrent"].mustRunAfter "registerNext${cEnv}InCurrent"
+        project.task("moveNext${cEnv}ToCurrent", dependsOn:["registerNext${cEnv}InCurrent", "tagNext${cEnv}AsCurrent"])
+        
+        
+        project.task("registerCurrent${cEnv}InPrevious", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerCurrent${cEnv}InPrevious"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+        }
+        project.task("deRegisterCurrent${cEnv}FromCurrent", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterCurrent${cEnv}FromCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.tasks["deRegisterCurrent${cEnv}FromCurrent"].mustRunAfter "registerCurrent${cEnv}InPrevious"
+        project.task("tagCurrent${cEnv}AsPrevious", type: me.gking2224.awsplugin.task.ec2.TagInstance)
+        project.tasks["tagCurrent${cEnv}AsPrevious"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "previous"
+        }
+        project.tasks["tagCurrent${cEnv}AsPrevious"].mustRunAfter "registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent"
+        project.task("moveCurrent${cEnv}ToPrevious", dependsOn:["registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent", "tagCurrent${cEnv}AsPrevious"])
+        
+        
+        project.task("deRegisterPrevious${cEnv}FromPrevious", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterPrevious${cEnv}FromPrevious"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as previous")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+        }
+        project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance)
+        project.tasks["tagPrevious${cEnv}AsNone"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "none"
+        }
+        project.tasks["tagPrevious${cEnv}AsNone"].mustRunAfter "deRegisterPrevious${cEnv}FromPrevious"
+        project.task("losePrevious${cEnv}", dependsOn:["deRegisterPrevious${cEnv}FromPrevious", "tagPrevious${cEnv}AsNone"])
+        
+        
+        project.task("promoteNext${cEnv}", group: "Deployment", dependsOn: ["moveNext${cEnv}ToCurrent", "moveCurrent${cEnv}ToPrevious", "losePrevious${cEnv}"])
+        project.tasks["moveCurrent${cEnv}ToPrevious"].mustRunAfter "moveNext${cEnv}ToCurrent"
+        project.tasks["losePrevious${cEnv}"].mustRunAfter "moveCurrent${cEnv}ToPrevious"
+        
+    }
+    
+    def configureRollbackTasks() {
+        envs.each {
+            configureRollbackTasks(it)
+        }
+    }
+    def configureRollbackTasks(String environment) {
+        
+        String cEnv = environment.capitalize()
+        
+        project.task("registerPrevious${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerPrevious${cEnv}InCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as previous")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.tasks["deRegisterPrevious${cEnv}FromPrevious"].mustRunAfter "registerPrevious${cEnv}InCurrent"
+        project.task("tagPrevious${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance)
+        project.tasks["tagPrevious${cEnv}AsCurrent"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "current"
+        }
+        project.tasks["tagPrevious${cEnv}AsCurrent"].mustRunAfter "registerPrevious${cEnv}InCurrent", "deRegisterPrevious${cEnv}FromPrevious"
+        project.task("movePrevious${cEnv}ToCurrent", dependsOn:["registerPrevious${cEnv}InCurrent", "deRegisterPrevious${cEnv}FromPrevious", "tagPrevious${cEnv}AsCurrent"])
+        
+        project.task("registerCurrent${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerCurrent${cEnv}InNext"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
+        }
+        project.tasks["deRegisterCurrent${cEnv}FromCurrent"].mustRunAfter "registerCurrent${cEnv}InNext"
+        project.task("tagCurrent${cEnv}AsNext", type: me.gking2224.awsplugin.task.ec2.TagInstance)
+        project.tasks["tagCurrent${cEnv}AsNext"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "next"
+        }
+        project.tasks["tagCurrent${cEnv}AsNext"].mustRunAfter "registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent"
+        project.task("moveCurrent${cEnv}ToNext", dependsOn:["registerCurrent${cEnv}InNext", "deRegisterCurrent${cEnv}FromCurrent", "tagCurrent${cEnv}AsNext"])
+        
+        
+        project.task("rollback${cEnv}", group: "Deployment", dependsOn: ["movePrevious${cEnv}ToCurrent", "moveCurrent${cEnv}ToNext"])
+        project.tasks["moveCurrent${cEnv}ToNext"].mustRunAfter "movePrevious${cEnv}ToCurrent"
+        
+    }
+    
 }
 
