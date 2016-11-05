@@ -250,7 +250,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         project.task("deRegisterNext${cEnv}FromNext", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
         project.tasks["deRegisterNext${cEnv}FromNext"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.next {it.instanceId}
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
             targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
         }
         project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance)
