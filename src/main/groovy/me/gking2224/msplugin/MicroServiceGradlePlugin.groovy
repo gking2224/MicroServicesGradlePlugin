@@ -22,6 +22,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         configureLoadBalancerDiscoveryTasks()
         configureDeRegisterTasks()
         configureRegisterTasks()
+        configureTagTasks()
         
         configureDeployTasks()
         configurePromoteTasks()
@@ -128,7 +129,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     
     def configureDeRegisterTasks() {
         envs.each {
-            configureDeployTasks(it)
+            configureDeRegisterTasks(it)
         }
     }
     def configureDeRegisterTasks(String environment) {
