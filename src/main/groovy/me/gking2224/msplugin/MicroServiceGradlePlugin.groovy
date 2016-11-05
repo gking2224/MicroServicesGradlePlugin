@@ -20,6 +20,8 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         configureInstanceDiscoveryTasks()
         configureLoadBalancerDiscoveryTasks()
+        configureDeRegisterTasks()
+        configureRegisterTasks()
         
         configureDeployTasks()
         configurePromoteTasks()
@@ -124,20 +126,118 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
     }
     
+    def configureDeRegisterTasks() {
+        envs.each {
+            configureDeployTasks(it)
+        }
+    }
+    def configureDeRegisterTasks(String environment) {
+        String cEnv = environment.capitalize()
+        
+        project.task("deRegisterNext${cEnv}FromNext", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterNext${cEnv}FromNext"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
+        }
+        project.task("deRegisterCurrent${cEnv}FromCurrent", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterCurrent${cEnv}FromCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.task("deRegisterPrevious${cEnv}FromPrevious", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterPrevious${cEnv}FromPrevious"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+        }
+    }
+    
+    def configureRegisterTasks() {
+        envs.each {
+            configureDeployTasks(it)
+        }
+    }
+    def configureRegisterTasks(String environment) {
+        String cEnv = environment.capitalize()
+        
+        project.task("registerNext${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerNext${cEnv}InCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as next")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.task("registerCurrent${cEnv}InPrevious", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerCurrent${cEnv}InPrevious"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+        }
+        project.task("registerPrevious${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerPrevious${cEnv}InCurrent"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as previous")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
+        }
+        project.task("registerCurrent${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["registerCurrent${cEnv}InNext"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
+        }
+    }
+    
+    def configureTagTasks() {
+        envs.each {
+            configureTagTasks(it)
+        }
+    }
+    def configureTagTasks(String environment) {
+        String cEnv = environment.capitalize()
+        
+        project.task("tagNext${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagNext${cEnv}AsCurrent"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "current"
+        }
+        project.task("tagCurrent${cEnv}AsPrevious", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagCurrent${cEnv}AsPrevious"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "previous"
+        }
+        project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagPrevious${cEnv}AsNone"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "none"
+        }
+        project.task("tagPrevious${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagPrevious${cEnv}AsCurrent"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "current"
+        }
+        project.task("tagCurrent${cEnv}AsNext", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagCurrent${cEnv}AsNext"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "next"
+        }
+        project.task("tagNext${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:"get${cEnv}Instances")
+        project.tasks["tagNext${cEnv}AsNone"].doFirst {
+            instanceId = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
+            tagKey = "version"
+            tagValue = "none"
+        }
+    }
+    
     def configureDeployTasks() {
         envs.each {
             configureDeployTasks(it)
         }
     }
     def configureDeployTasks(String environment) {
-        
         String cEnv = environment.capitalize()
-        
-//        project.task("getNext${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
-//            service = project.name
-//            env = environment
-//            version = ["none","next"]
-//        }
         
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["get${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
@@ -203,69 +303,20 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     def configurePromoteTasks(String environment) {
         
         String cEnv = environment.capitalize()
-        
-        project.task("registerNext${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["registerNext${cEnv}InCurrent"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as next")
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
-        }
-        project.task("tagNext${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance)
-        project.tasks["tagNext${cEnv}AsCurrent"].doFirst {
-            instanceId = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
-            tagKey = "version"
-            tagValue = "current"
-        }
         project.tasks["tagNext${cEnv}AsCurrent"].mustRunAfter "registerNext${cEnv}InCurrent"
-        project.task("moveNext${cEnv}ToCurrent", dependsOn:["registerNext${cEnv}InCurrent", "tagNext${cEnv}AsCurrent"])
+        project.tasks["deRegisterNext${cEnv}FromNext"].mustRunAfter "registerNext${cEnv}InCurrent"
+        project.task("moveNext${cEnv}ToCurrent", dependsOn:["registerNext${cEnv}InCurrent", "tagNext${cEnv}AsCurrent", "deRegisterNext${cEnv}FromNext"])
         
         
-        project.task("registerCurrent${cEnv}InPrevious", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["registerCurrent${cEnv}InPrevious"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
-        }
-        project.task("deRegisterCurrent${cEnv}FromCurrent", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["deRegisterCurrent${cEnv}FromCurrent"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
-        }
         project.tasks["deRegisterCurrent${cEnv}FromCurrent"].mustRunAfter "registerCurrent${cEnv}InPrevious"
-        project.task("tagCurrent${cEnv}AsPrevious", type: me.gking2224.awsplugin.task.ec2.TagInstance)
-        project.tasks["tagCurrent${cEnv}AsPrevious"].doFirst {
-            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            tagKey = "version"
-            tagValue = "previous"
-        }
-        project.tasks["tagCurrent${cEnv}AsPrevious"].mustRunAfter "registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent"
+        project.tasks["tagCurrent${cEnv}AsPrevious"].mustRunAfter "registerCurrent${cEnv}InPrevious"
         project.task("moveCurrent${cEnv}ToPrevious", dependsOn:["registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent", "tagCurrent${cEnv}AsPrevious"])
         
-        
-        project.task("deRegisterPrevious${cEnv}FromPrevious", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["deRegisterPrevious${cEnv}FromPrevious"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
-        }
-        
-        project.task("deRegisterNext${cEnv}FromNext", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["deRegisterNext${cEnv}FromNext"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.next?.collect {it.instanceId}
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
-        }
-        project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance)
-        project.tasks["tagPrevious${cEnv}AsNone"].doFirst {
-            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
-            tagKey = "version"
-            tagValue = "none"
-        }
         project.tasks["tagPrevious${cEnv}AsNone"].mustRunAfter "deRegisterPrevious${cEnv}FromPrevious"
         project.task("losePrevious${cEnv}", dependsOn:["deRegisterPrevious${cEnv}FromPrevious", "tagPrevious${cEnv}AsNone"])
         
-        
-        project.task("promoteNext${cEnv}", group: "Deployment", dependsOn: ["moveNext${cEnv}ToCurrent", "moveCurrent${cEnv}ToPrevious", "losePrevious${cEnv}", "deRegisterNext${cEnv}FromNext"])
+        project.task("promoteNext${cEnv}", group: "Deployment", dependsOn: ["moveNext${cEnv}ToCurrent", "moveCurrent${cEnv}ToPrevious", "losePrevious${cEnv}"])
         project.tasks["moveCurrent${cEnv}ToPrevious"].mustRunAfter "moveNext${cEnv}ToCurrent"
-        project.tasks["deRegisterNext${cEnv}FromNext"].mustRunAfter "moveNext${cEnv}ToCurrent"
         project.tasks["losePrevious${cEnv}"].mustRunAfter "moveCurrent${cEnv}ToPrevious"
         
     }
@@ -279,41 +330,20 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         String cEnv = environment.capitalize()
         
-        project.task("registerPrevious${cEnv}InCurrent", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["registerPrevious${cEnv}InCurrent"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as previous")
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.current?.targetGroupArn
-        }
         project.tasks["deRegisterPrevious${cEnv}FromPrevious"].mustRunAfter "registerPrevious${cEnv}InCurrent"
-        project.task("tagPrevious${cEnv}AsCurrent", type: me.gking2224.awsplugin.task.ec2.TagInstance)
-        project.tasks["tagPrevious${cEnv}AsCurrent"].doFirst {
-            instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
-            tagKey = "version"
-            tagValue = "current"
-        }
-        project.tasks["tagPrevious${cEnv}AsCurrent"].mustRunAfter "registerPrevious${cEnv}InCurrent", "deRegisterPrevious${cEnv}FromPrevious"
+        project.tasks["tagPrevious${cEnv}AsCurrent"].mustRunAfter "registerPrevious${cEnv}InCurrent"
         project.task("movePrevious${cEnv}ToCurrent", dependsOn:["registerPrevious${cEnv}InCurrent", "deRegisterPrevious${cEnv}FromPrevious", "tagPrevious${cEnv}AsCurrent"])
         
-        project.task("registerCurrent${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
-        project.tasks["registerCurrent${cEnv}InNext"].doFirst {
-            instanceIds = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as current")
-            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
-        }
         project.tasks["deRegisterCurrent${cEnv}FromCurrent"].mustRunAfter "registerCurrent${cEnv}InNext"
-        project.task("tagCurrent${cEnv}AsNext", type: me.gking2224.awsplugin.task.ec2.TagInstance)
-        project.tasks["tagCurrent${cEnv}AsNext"].doFirst {
-            instanceId = project.tasks["get${cEnv}Instances"].instances.current?.collect {it.instanceId}
-            tagKey = "version"
-            tagValue = "next"
-        }
-        project.tasks["tagCurrent${cEnv}AsNext"].mustRunAfter "registerCurrent${cEnv}InPrevious", "deRegisterCurrent${cEnv}FromCurrent"
+        project.tasks["tagCurrent${cEnv}AsNext"].mustRunAfter "registerCurrent${cEnv}InNext"
         project.task("moveCurrent${cEnv}ToNext", dependsOn:["registerCurrent${cEnv}InNext", "deRegisterCurrent${cEnv}FromCurrent", "tagCurrent${cEnv}AsNext"])
         
+        project.tasks["tagNext${cEnv}AsNone"].mustRunAfter "deRegisterNext${cEnv}FromNext"
+        project.task("loseNext${cEnv}", dependsOn:["deRegisterNext${cEnv}FromNext", "tagNext${cEnv}AsNone"])
         
-        project.task("rollback${cEnv}", group: "Deployment", dependsOn: ["movePrevious${cEnv}ToCurrent", "moveCurrent${cEnv}ToNext"])
+        project.task("rollback${cEnv}", group: "Deployment", dependsOn: ["movePrevious${cEnv}ToCurrent", "moveCurrent${cEnv}ToNext", "loseNext${cEnv}"])
         project.tasks["moveCurrent${cEnv}ToNext"].mustRunAfter "movePrevious${cEnv}ToCurrent"
+        project.tasks["loseNext${cEnv}"].mustRunAfter "moveCurrent${cEnv}ToNext"
         
     }
     
