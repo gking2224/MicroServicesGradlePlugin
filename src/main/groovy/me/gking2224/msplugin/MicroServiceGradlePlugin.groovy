@@ -141,7 +141,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["get${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
-            def instances = project.tasks["get${cEnv}Instances"].instances.none
+            ext.instances = project.tasks["get${cEnv}Instances"].instances.none
             if (instances == null || instances.isEmpty()) instances = project.tasks["get${cEnv}Instances"].instances.next
             instances.each {
                 it.getTags().find{it.getKey() == 'ecsCluster' }.each {
