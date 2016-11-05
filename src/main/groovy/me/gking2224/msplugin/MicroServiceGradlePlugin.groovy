@@ -142,7 +142,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["get${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
             def instances = project.tasks["get${cEnv}Instances"].instances.none
-            if (instances == null) instances = project.tasks["get${cEnv}Instances"].instances.next
+            if (instances == null || instances.isEmpty()) instances = project.tasks["get${cEnv}Instances"].instances.next
             instances.each {
                 it.getTags().find{it.getKey() == 'ecsCluster' }.each {
                     def ecsClusterTag = it.getValue()
@@ -163,7 +163,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["get${cEnv}Instances"])
         project.tasks["tagNext${cEnv}Instance"].doFirst {
             def instances = project.tasks["get${cEnv}Instances"].instances.none
-            if (instances == null) instances = project.tasks["get${cEnv}Instances"].instances.next
+            if (instances == null || instances.isEmpty()) instances = project.tasks["get${cEnv}Instances"].instances.next
             instanceId = instances.collect {it.instanceId}
             tagKey = "version"
             tagValue = "next"
