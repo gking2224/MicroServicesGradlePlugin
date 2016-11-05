@@ -160,6 +160,14 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             taskDefinitionArn = project["${environment}TaskDefinitionArn"]
         }
         
+        project.task("registerNext${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["updateNext${cEnv}Service"])
+        project.tasks["registerNext${cEnv}InNext"].doFirst {
+            instanceIds = project.tasks["updateNext${cEnv}Service"].instances.collect {it.instanceId}
+            if (instanceIds == null || instanceIds.isEmpty()) throw new GradleException("no instances tagged as next")
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
+        }
+        project.tasks["registerNext${cEnv}InNext"].mustRunAfter "tagNext${cEnv}Instance"
+        
         project.task("tagNext${cEnv}Instance", type: me.gking2224.awsplugin.task.ec2.TagInstance, dependsOn:["get${cEnv}Instances"])
         project.tasks["tagNext${cEnv}Instance"].doFirst {
             def instances = project.tasks["get${cEnv}Instances"].instances.none
@@ -168,7 +176,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             tagKey = "version"
             tagValue = "next"
         }
-        project.task("updateAndTagNext${cEnv}Instance", dependsOn:["updateNext${cEnv}Service", "tagNext${cEnv}Instance"])
+        project.task("updateAndTagNext${cEnv}Instance", dependsOn:["updateNext${cEnv}Service", "tagNext${cEnv}Instance", "registerNext${cEnv}InNext"])
     }
     
     def configureLoadBalancerDiscoveryTasks() {
@@ -239,6 +247,12 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
             targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.previous?.targetGroupArn
         }
+        
+        project.task("deRegisterNext${cEnv}FromNext", type: me.gking2224.awsplugin.task.elb.DeRegisterTargets, dependsOn:["get${cEnv}Instances", "get${cEnv}TargetGroups"])
+        project.tasks["deRegisterNext${cEnv}FromNext"].doFirst {
+            instanceIds = project.tasks["get${cEnv}Instances"].instances.previous?.next {it.instanceId}
+            targetGroupArn = project.tasks["get${cEnv}TargetGroups"].targetGroups.next?.targetGroupArn
+        }
         project.task("tagPrevious${cEnv}AsNone", type: me.gking2224.awsplugin.task.ec2.TagInstance)
         project.tasks["tagPrevious${cEnv}AsNone"].doFirst {
             instanceId = project.tasks["get${cEnv}Instances"].instances.previous?.collect {it.instanceId}
@@ -249,8 +263,9 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("losePrevious${cEnv}", dependsOn:["deRegisterPrevious${cEnv}FromPrevious", "tagPrevious${cEnv}AsNone"])
         
         
-        project.task("promoteNext${cEnv}", group: "Deployment", dependsOn: ["moveNext${cEnv}ToCurrent", "moveCurrent${cEnv}ToPrevious", "losePrevious${cEnv}"])
+        project.task("promoteNext${cEnv}", group: "Deployment", dependsOn: ["moveNext${cEnv}ToCurrent", "moveCurrent${cEnv}ToPrevious", "losePrevious${cEnv}", "deRegisterNext${cEnv}FromNext"])
         project.tasks["moveCurrent${cEnv}ToPrevious"].mustRunAfter "moveNext${cEnv}ToCurrent"
+        project.tasks["deRegisterNext${cEnv}FromNext"].mustRunAfter "moveNext${cEnv}ToCurrent"
         project.tasks["losePrevious${cEnv}"].mustRunAfter "moveCurrent${cEnv}ToPrevious"
         
     }
