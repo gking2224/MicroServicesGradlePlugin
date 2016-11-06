@@ -7,6 +7,8 @@ buildscript {
     }
     dependencies {
         classpath group:"me.gking2224", name:"BuildToolsGradlePlugin", version:"0.2.+", changing: true
+        classpath group: "me.gking2224", name:"DockerPlugin", version:"0.0.+"
+        classpath 'se.transmode.gradle:gradle-docker:1.2'
     }
 }
 
@@ -14,6 +16,7 @@ plugins {
   id 'groovy'
 }
 apply plugin: 'me.gking2224.buildtools'
+apply plugin: 'docker'
 
 jar {
     
