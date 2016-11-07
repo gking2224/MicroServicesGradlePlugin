@@ -16,6 +16,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         this.project = project
 		project.extensions.create(MicroServicePluginExtension.KEY, MicroServicePluginExtension, project)
         
+        applyPlugins()
         configureDockerPublishTasks()
         
         configureInstanceDiscoveryTasks()
@@ -28,6 +29,12 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         configurePromoteTasks()
         configureRollbackTasks()
 	}
+    
+    def applyPlugins() {
+        project.apply plugin: 'me.gking2224.dockerplugin'
+        project.apply plugin: 'docker'
+
+    }
     
     def configureDockerPublishTasks() {
         
