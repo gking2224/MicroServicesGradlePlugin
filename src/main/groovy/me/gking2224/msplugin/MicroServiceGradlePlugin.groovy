@@ -115,11 +115,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         String cEnv = env.capitalize()
         project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
             family "${project.name}-${env}"
+        }
+        project.tasks["new${cEnv}TaskDefinition"].doFirst {
             getTaskDefinitionSuffices().each {
                 family "${project.name}-${env}-${it}"
             }
-        }
-        project.tasks["new${cEnv}TaskDefinition"].doFirst {
             image = project.tasks.pushDockerImage.imageId
         }
         project.tasks["new${cEnv}TaskDefinition"] << {
