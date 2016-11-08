@@ -264,20 +264,16 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.tasks["updateNext${cEnv}Service"].doFirst {
             ext.instances = project.tasks["get${cEnv}Instances"].instances.next
             if (instances == null || instances.isEmpty()) instances = project.tasks["get${cEnv}Instances"].instances.none
-            instances.each {
-                it.getTags().find{it.getKey() == 'ecsCluster' }.each {
-                    def ecsClusterTag = it.getValue()
-                    if (clusterName != null && clusterName != ecsClusterTag) throw new GradleException("mismatching ecsCluster in $instances")
-                    else clusterName = ecsClusterTag
-                }
-            }
+            def suffix = null
             instances.each {
                 it.getTags().find{it.getKey() == 'ecsServiceSuffix' }.each {
                     def ecsServiceSuffixTag = it.getValue()
-                    if (serviceSuffix != null && serviceSuffix != ecsServiceSuffixTag) throw new GradleException("mismatching ecsServiceSuffix in $instances")
-                    serviceSuffix = ecsServiceSuffixTag
+                    if (suffix != null && suffix != ecsServiceSuffixTag) throw new GradleException("mismatching ecsServiceSuffix in $instances")
+                    if (ecsServiceSuffixTag != null) suffix = ecsServiceSuffixTag
                 }
             }
+            if (suffix != null) serviceSuffix = suffix
+            clusterName = "${project.name}" + (suffix != null) ? "-$suffix" : ""
             def region = getRegion()
             taskDefinitionArns = project["${environment}TaskDefinitionArns"]
         }
