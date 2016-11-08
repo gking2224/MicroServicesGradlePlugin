@@ -8,7 +8,6 @@ import org.gradle.api.Project
 class MicroServiceGradlePlugin implements Plugin<Project> {
 
     private static final String NAME = "me.gking2224.msplugin"
-    private String[] envs = ["dev", "test"]
 
     Project project
 	void apply(Project project) {
@@ -28,7 +27,19 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         configureDeployTasks()
         configurePromoteTasks()
         configureRollbackTasks()
+        
+        configureEnsureSnapshot()
 	}
+    
+    def getEnvs() {
+        MicroServicePluginExtension ext = project.getExtensions().findByType(MicroServicePluginExtension.class)
+        return ext.envs
+    }
+    
+    def getTaskDefinitionSuffices() {
+        MicroServicePluginExtension ext = project.getExtensions().findByType(MicroServicePluginExtension.class)
+        return ext.taskDefinitionSuffices
+    }
     
     def applyPlugins() {
         project.apply plugin: 'me.gking2224.dockerplugin'
@@ -37,7 +48,6 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureDockerPublishTasks() {
-        
         
         project.task("ecrGetLogin", type: me.gking2224.awsplugin.task.ecr.GetLogin) {
             registryId = project.dockerEcrRegistryId
@@ -82,21 +92,21 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         }
         project.tasks.tagImageForRemote.dependsOn 'ecrGetLogin'
         
-        project.task("pushImage", type: me.gking2224.dockerplugin.task.PushImage)
-        project.tasks.pushImage.doFirst {
+        project.task("pushDockerImage", type: me.gking2224.dockerplugin.task.PushImage)
+        project.tasks.pushDockerImage.doFirst {
             imageId = project.dockerRepositoryName + "/" + project.group + "/" + project.name + ":" + project.version
         }
-        project.tasks.pushImage.dependsOn 'tagImageForRemote'
+        project.tasks.pushDockerImage.dependsOn 'tagImageForRemote'
         
         project.task("newTaskDefinitions")
-        project.tasks["newTaskDefinitions"].dependsOn 'pushImage'
+        project.tasks["newTaskDefinitions"].dependsOn 'pushDockerImage'
         configureNewTaskDefinitionTasks()
         
-        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushImage', 'newDevTaskDefinition', 'updateAndTagNextDevInstance')
+        project.tasks.postReleaseHook.dependsOn('buildDockerImage', 'pushDockerImage', 'newDevTaskDefinition', 'updateAndTagNextDevInstance')
     }
     
     def configureNewTaskDefinitionTasks() {
-        envs.each {
+        getEnvs().each {
             configureNewTaskDefinitionTasks(it)
         }
     }
@@ -104,21 +114,24 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     def configureNewTaskDefinitionTasks(String env) {
         String cEnv = env.capitalize()
         project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
-            family = "${project.name}-${env}"
+            family "${project.name}-${env}"
+            getTaskDefinitionSuffices().each {
+                family "${project.name}-${env}-${it}"
+            }
         }
         project.tasks["new${cEnv}TaskDefinition"].doFirst {
-            image = project.tasks.pushImage.imageId
+            image = project.tasks.pushDockerImage.imageId
         }
         project.tasks["new${cEnv}TaskDefinition"] << {
-            project.ext["${env}TaskDefinitionName"] = taskDefinitionName
-            project.ext["${env}TaskDefinitionArn"] = taskDefinitionArn
+            project.ext["${env}TaskDefinitionNames"] = taskDefinitionNames
+            project.ext["${env}TaskDefinitionArns"] = taskDefinitionArns
         }
-        project.tasks["new${cEnv}TaskDefinition"].mustRunAfter project.tasks.pushImage
+        project.tasks["new${cEnv}TaskDefinition"].mustRunAfter project.tasks.pushDockerImage
         project.tasks["newTaskDefinitions"].dependsOn "new${cEnv}TaskDefinition"
     }
     
     def configureInstanceDiscoveryTasks() {
-        envs.each {
+        getEnvs().each {
             configureInstanceDiscoveryTasks(it)
         }
     }
@@ -135,7 +148,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureDeRegisterTasks() {
-        envs.each {
+        getEnvs().each {
             configureDeRegisterTasks(it)
         }
     }
@@ -160,7 +173,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureRegisterTasks() {
-        envs.each {
+        getEnvs().each {
             configureRegisterTasks(it)
         }
     }
@@ -194,7 +207,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureTagTasks() {
-        envs.each {
+        getEnvs().each {
             configureTagTasks(it)
         }
     }
@@ -240,7 +253,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureDeployTasks() {
-        envs.each {
+        getEnvs().each {
             configureDeployTasks(it)
         }
     }
@@ -258,14 +271,15 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
                     else clusterName = ecsClusterTag
                 }
             }
-            instances.each {
-                it.getTags().find{it.getKey() == 'ecsServiceArn' }.each {
-                    def ecsServiceArnTag = it.getValue()
-                    if (service != null && service != ecsServiceArnTag) throw new GradleException("mismatching ecsServiceArn in $instances")
-                    service = ecsServiceArnTag
-                }
-            }
-            taskDefinitionArn = project["${environment}TaskDefinitionArn"]
+//            instances.each {
+//                it.getTags().find{it.getKey() == 'ecsServiceArn' }.each {
+//                    def ecsServiceArnTag = it.getValue()
+//                    if (service != null && service != ecsServiceArnTag) throw new GradleException("mismatching ecsServiceArn in $instances")
+//                    service = ecsServiceArnTag
+//                }
+//            }
+            def region = getRegion()
+            taskDefinitionArns = project["${environment}TaskDefinitionArns"]
         }
         
         project.task("registerNext${cEnv}InNext", type: me.gking2224.awsplugin.task.elb.RegisterTargets, dependsOn:["updateNext${cEnv}Service", "get${cEnv}TargetGroups"])
@@ -288,7 +302,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureLoadBalancerDiscoveryTasks() {
-        envs.each {
+        getEnvs().each {
             configureLoadBalancerDiscoveryTasks(it)
         }
     }
@@ -304,7 +318,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configurePromoteTasks() {
-        envs.each {
+        getEnvs().each {
             configurePromoteTasks(it)
         }
     }
@@ -330,7 +344,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     }
     
     def configureRollbackTasks() {
-        envs.each {
+        getEnvs().each {
             configureRollbackTasks(it)
         }
     }
@@ -352,6 +366,10 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("rollback${cEnv}", group: "Deployment", dependsOn: ["movePrevious${cEnv}ToCurrent", "moveCurrent${cEnv}ToNext", "loseNext${cEnv}"])
         project.tasks["moveCurrent${cEnv}ToNext"].mustRunAfter "movePrevious${cEnv}ToCurrent"
         project.tasks["loseNext${cEnv}"].mustRunAfter "moveCurrent${cEnv}ToNext"
+        
+    }
+    
+    def configureEnsureSnapshot() {
         
     }
     
