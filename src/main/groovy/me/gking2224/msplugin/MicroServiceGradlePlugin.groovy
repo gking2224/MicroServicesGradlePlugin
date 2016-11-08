@@ -273,7 +273,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
                 }
             }
             suffix = (suffix != null) ? "-$suffix" : ""
-            clusterName = "${project.name}${suffix}"
+            clusterName = "${project.name}-${environment}${suffix}"
             def region = getRegion()
             taskDefinitionArns = project["${environment}TaskDefinitionArns"]
         }
