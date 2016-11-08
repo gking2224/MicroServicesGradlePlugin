@@ -272,7 +272,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
                     if (ecsServiceSuffixTag != null) suffix = ecsServiceSuffixTag
                 }
             }
-            suffix = (suffix != null) ? "-$suffix" : ""
+            if (suffix != null) {
+                serviceSuffix = suffix
+                suffix = "-$suffix"
+            }
+            else suffix = ""
             clusterName = "${project.name}-${environment}${suffix}"
             def region = getRegion()
             taskDefinitionArns = project["${environment}TaskDefinitionArns"]
