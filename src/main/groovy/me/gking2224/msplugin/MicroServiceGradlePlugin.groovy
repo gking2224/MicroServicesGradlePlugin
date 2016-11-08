@@ -271,13 +271,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
                     else clusterName = ecsClusterTag
                 }
             }
-//            instances.each {
-//                it.getTags().find{it.getKey() == 'ecsServiceArn' }.each {
-//                    def ecsServiceArnTag = it.getValue()
-//                    if (service != null && service != ecsServiceArnTag) throw new GradleException("mismatching ecsServiceArn in $instances")
-//                    service = ecsServiceArnTag
-//                }
-//            }
+            instances.each {
+                it.getTags().find{it.getKey() == 'ecsServiceSuffix' }.each {
+                    def ecsServiceSuffixTag = it.getValue()
+                    if (serviceSuffix != null && serviceSuffix != ecsServiceSuffixTag) throw new GradleException("mismatching ecsServiceSuffix in $instances")
+                    serviceSuffix = ecsServiceSuffixTag
+                }
+            }
             def region = getRegion()
             taskDefinitionArns = project["${environment}TaskDefinitionArns"]
         }
