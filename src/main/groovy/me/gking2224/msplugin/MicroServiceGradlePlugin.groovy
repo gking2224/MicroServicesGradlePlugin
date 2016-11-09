@@ -70,7 +70,6 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             tag = "${project.group}/${project.name}"
             tagVersion = project.version
             addFile new File("build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"), "\$WORK_DIR/service.jar"
-            addFile new File("logback.xml"), "\$WORK_DIR"
             apiEmail = "none"
         }
         project.tasks.buildDockerImage.doFirst {
