@@ -69,19 +69,18 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             applicationName = project.name
             tag = "${project.group}/${project.name}"
             tagVersion = project.version
-            addFile new File("build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"), "\$WORK_DIR/service.jar"
             apiEmail = "none"
         }
         project.tasks.buildDockerImage.doFirst {
+//            if (ext.file == null) ext.file = "build/libs/${project.name}-${project.preReleaseVersion}-boot.jar"
+//            if (ext.targetFile == null) ext.targetFile = "\$WORK_DIR/service.jar"
+//            addFile new File(file), targetFile
             tagVersion = project.version
             setEnvironment "VERSION", project.version
             hostUrl = project.ecrRepository
             apiUsername = project.ecrUsername
             apiPassword = project.ecrPassword
             logger.debug("buildDockerImage with hostUrl=$hostUrl; apiUsername=$apiUsername; apiPassword=$apiPassword; version=$tagVersion")
-        }
-        project.tasks.buildDockerImage << {
-            logger.debug("Built $tag")
         }
         project.tasks.buildDockerImage.dependsOn 'dockerLogin'
         project.task("tagImageForRemote", type: me.gking2224.dockerplugin.task.TagImage) {
