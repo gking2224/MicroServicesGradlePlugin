@@ -30,6 +30,7 @@ class MicroServicePluginExtension {
         taskDefinitionSuffices << suffix
     }
     def taskDefinitionPrefix(String prefix) {
+        logger.info("Using task definition prefix $prefix")
         taskDefinitionPrefix = prefix
     }
 }

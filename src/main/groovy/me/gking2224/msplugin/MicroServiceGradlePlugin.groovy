@@ -115,12 +115,13 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     
     def configureNewTaskDefinitionTasks(String env) {
         String cEnv = env.capitalize()
-        project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
-            family "${getTaskDefinitionPrefix()}-${env}"
-        }
+        def prefix = getTaskDefinitionPrefix()
+        project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition)
         project.tasks["new${cEnv}TaskDefinition"].doFirst {
+            logger.info("using task definition prefix $prefix")
+            family "${prefix}-${env}"
             getTaskDefinitionSuffices().each {
-                family "${getTaskDefinitionPrefix()}-${env}-${it}"
+                family "${prefix}-${env}-${it}"
             }
             logger.debug("families: ${families}")
             image = project.tasks.pushDockerImage.imageId
