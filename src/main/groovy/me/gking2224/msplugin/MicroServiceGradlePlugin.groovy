@@ -122,7 +122,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             getTaskDefinitionSuffices().each {
                 family "${getTaskDefinitionPrefix()}-${env}-${it}"
             }
-            logger.debug("families: ${family}")
+            logger.debug("families: ${families}")
             image = project.tasks.pushDockerImage.imageId
         }
         project.tasks["new${cEnv}TaskDefinition"] << {
