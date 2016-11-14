@@ -273,6 +273,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         
         project.task("updateNext${cEnv}Service", type: me.gking2224.awsplugin.task.ecs.UpdateService, dependsOn:["get${cEnv}Instances"])
         project.tasks["updateNext${cEnv}Service"].doFirst {
+            
             ext.instances = project.tasks["get${cEnv}Instances"].instances.next
             if (instances == null || instances.isEmpty()) instances = project.tasks["get${cEnv}Instances"].instances.none
             def suffix = null
@@ -288,7 +289,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
                 suffix = "-$suffix"
             }
             else suffix = ""
-            clusterName = "${project.name}-${environment}${suffix}"
+            clusterName = "${getInstanceService()}-${environment}${suffix}"
             def region = getRegion()
             taskDefinitionArns = project["${environment}TaskDefinitionArns"]
         }
