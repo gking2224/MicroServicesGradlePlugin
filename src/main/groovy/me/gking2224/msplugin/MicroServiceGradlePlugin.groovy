@@ -46,6 +46,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         return ext.taskDefinitionPrefix
     }
     
+    def getInstanceService() {
+        MicroServicePluginExtension ext = project.getExtensions().findByType(MicroServicePluginExtension.class)
+        return ext.instanceService
+    }
+    
     def applyPlugins() {
         project.apply plugin: 'me.gking2224.dockerplugin'
         project.apply plugin: 'docker'
@@ -146,7 +151,9 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("get${cEnv}Instances", type: me.gking2224.awsplugin.task.ec2.GetInstances) {
             env = environment
             version = ["current", "next", "previous", "none"]
-            service = project.name
+        }
+        project.tasks["get${cEnv}Instances"].doFirst {
+            service = getInstanceService()
         }
         
     }
