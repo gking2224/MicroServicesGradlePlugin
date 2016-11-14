@@ -49,7 +49,6 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     def applyPlugins() {
         project.apply plugin: 'me.gking2224.dockerplugin'
         project.apply plugin: 'docker'
-
     }
     
     def configureDockerPublishTasks() {
@@ -123,6 +122,7 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
             getTaskDefinitionSuffices().each {
                 family "${getTaskDefinitionPrefix()}-${env}-${it}"
             }
+            logger.debug("families: ${family}")
             image = project.tasks.pushDockerImage.imageId
         }
         project.tasks["new${cEnv}TaskDefinition"] << {
