@@ -324,7 +324,9 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         project.task("get${cEnv}TargetGroups", type: me.gking2224.awsplugin.task.elb.GetTargetGroups) {
             env = "dev"
             version = ["current", "next", "previous", "none"]
-            service = "securityms"
+        }
+        project.tasks["get${cEnv}TargetGroups"].doFirst {
+            service = getInstanceService()
         }
     }
     
