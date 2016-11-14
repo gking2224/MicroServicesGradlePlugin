@@ -11,12 +11,15 @@ class MicroServicePluginExtension {
     
     def taskDefinitionSuffices = [] as Set
     
+    def taskDefinitionPrefix
+    
     def envs = [] as Set
     
     def project;
     
     public MicroServicePluginExtension(Project project) {
         this.project = project;
+        this.taskDefinitionPrefix = project.name
         envs << "dev"
     }
     
@@ -25,5 +28,8 @@ class MicroServicePluginExtension {
     }
     def taskDefinitionSuffix(String suffix) {
         taskDefinitionSuffices << suffix
+    }
+    def taskDefinitionPrefix(String prefix) {
+        taskDefinitionPrefix = prefix
     }
 }

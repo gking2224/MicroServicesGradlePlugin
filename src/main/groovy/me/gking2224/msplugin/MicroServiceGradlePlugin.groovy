@@ -41,6 +41,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
         return ext.taskDefinitionSuffices
     }
     
+    def getTaskDefinitionPrefix() {
+        MicroServicePluginExtension ext = project.getExtensions().findByType(MicroServicePluginExtension.class)
+        return ext.taskDefinitionPrefix
+    }
+    
     def applyPlugins() {
         project.apply plugin: 'me.gking2224.dockerplugin'
         project.apply plugin: 'docker'
@@ -112,11 +117,11 @@ class MicroServiceGradlePlugin implements Plugin<Project> {
     def configureNewTaskDefinitionTasks(String env) {
         String cEnv = env.capitalize()
         project.task("new${cEnv}TaskDefinition", type: me.gking2224.awsplugin.task.ecs.RegisterTaskDefinition) {
-            family "${project.name}-${env}"
+            family "${getTaskDefinitionPrefix()}-${env}"
         }
         project.tasks["new${cEnv}TaskDefinition"].doFirst {
             getTaskDefinitionSuffices().each {
-                family "${project.name}-${env}-${it}"
+                family "${getTaskDefinitionPrefix()}-${env}-${it}"
             }
             image = project.tasks.pushDockerImage.imageId
         }
